@@ -1,0 +1,37 @@
+package ogp.game;
+
+import ogp.util.Rectangle;
+
+/**
+ * @immutable
+ */
+public class Block extends Obstacle {
+	
+	private boolean isFinish;
+		
+	public boolean isFinish() {
+		return isFinish;
+	}
+	
+	public Block(Rectangle hitbox) {
+		super(hitbox);
+		isFinish = false;
+	}
+	
+	public Block(Rectangle hitbox, boolean isf) {
+		super(hitbox);
+		isFinish = isf;
+	}
+	
+	@Override
+	/**
+	 * LEGIT
+	 */
+	public String pngPath() {
+		String res = null;
+		if (isFinish) { res = "items/flagRed.png"; }
+		return res;
+	}
+
+
+}
