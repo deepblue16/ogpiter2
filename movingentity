@@ -1,0 +1,135 @@
+package ogp.game;
+
+import ogp.util.Point;
+import ogp.util.Rectangle;
+import ogp.util.Vector;
+
+public abstract class MovingEntity implements Paintable {
+
+	private Rectangle hitbox;
+	private Vector speed;
+	private final int hspeed; //typical horizontal speed (absolute value)
+	private final int vspeed; //typical jump speed (absolute value)
+	private double gravSpeedAcc; //Gravity speed accumulator. Type is double for precision
+	
+	private Point position; // zelf toegevoegd
+	
+	
+	public Vector getSpeed() {
+		return speed;
+	}
+	
+	public Rectangle getHitbox() {
+		return new Rectangle(hitbox.getTL(), hitbox.getWidth(), hitbox.getHeight());
+	}
+	
+	public int getHspeed() {
+		return hspeed;
+	}
+	
+	public int getVspeed() {
+		return vspeed;
+	}
+	
+	
+	public MovingEntity(Rectangle hitbox, Vector speed, int hspeed, int vspeed) {
+		this.hitbox = new Rectangle(hitbox.getTL(), hitbox.getWidth(), hitbox.getHeight());
+		this.speed = speed;
+		this.hspeed = hspeed;
+		this.vspeed = vspeed;
+		this.gravSpeedAcc = 0;
+		this.position = hitbox.getBL();
+
+	}
+	
+	/**
+	 * NOSPEC
+	 * 
+	 * has some effect only if isAffectedByGravity() == true
+	 * @param elapsed is in ms
+	 */
+	public void updateSpeedWithGravity(int gcst, int elapsed, boolean gravSwitch) {
+		if (isAffectedByGravity()) {
+			gravSpeedAcc = gravSpeedAcc + ((double) elapsed / 1000) * ((double) gcst);
+			if (gravSpeedAcc >= 1) {
+				int cut = (int) Math.floor(gravSpeedAcc);
+				gravSpeedAcc -= cut;
+				if (!gravSwitch) {	this.speed = this.speed.plus(new Vector(0,cut)); }
+				else this.speed = this.speed.minus(new Vector(0,cut));
+				
+			}
+		}
+		
+	}
+	
+	/**
+	 * @pre | r != null
+	 */
+	public void setHitbox(Rectangle r) {
+		this.hitbox = new Rectangle(r.getTL(), r.getWidth(), r.getHeight());
+		}
+	
+	/**
+	 * @post | getHitbox().getBL().equals(botLeft)
+	 */
+	public void setPosition(Point botLeft) {
+		position = botLeft;
+		hitbox = new Rectangle(botLeft.plus(new Vector(0,- hitbox.getHeight())), hitbox.getWidth(), hitbox.getHeight());
+	}
+
+	
+	public void setSpeed(Vector nspeed) {
+		this.speed = nspeed;
+	}
+	
+	public void setHorizontalSpeed(int x) {
+		speed = new Vector(x, speed.y());
+	}
+	
+	public void setVerticalSpeed(int y) {
+		speed = new Vector(speed.x(), y);
+	}
+	
+	public void addSpeed(Vector other) {
+		speed = speed.plus(other);
+	}
+
+	
+	//Methods that are often overriden in subtypes
+	
+	/**
+	 * This method affects the speed and not directly the position.
+	 * 
+	 * This method describes how this entity should move (more precisely: have its speed vector modified),
+	 * independently from user input.
+	 * 
+	 * @param dt in ms.
+	 */
+	public abstract void updateSpeedAuto(int dt, boolean gravSwitched);
+
+	@Override
+	public boolean isAffectedByGravity() {
+		return true;
+	}
+
+	public boolean isPlayer() {
+		return false;
+	}
+	
+	/**
+	 * Asks fixent to handle the collision with `this` for us.
+	 * @param soleCollision tells if fixent is the only thing this moving entity is about to collide with.
+	 * If that is the case and if fixent is traversable, it is safe to move this entity "where it wants to go" (so hitbox = hitbox + speed).
+	 */
+	public abstract CollisionInfo delegateCollision(FixedEntity fixent, boolean soleCollision);
+	
+	/**
+	 * 
+	 * @post | result.getClass().equals(old(getClass()))
+	 */
+	public abstract MovingEntity copyMovent();
+	
+	
+	
+
+}
