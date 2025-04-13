@@ -1,0 +1,252 @@
+package ogp.ui;
+
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Image;
+import java.awt.Toolkit;
+import java.awt.Window;
+import java.util.ArrayList;
+import java.util.HashMap;
+
+import javax.swing.ImageIcon;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
+
+import ogp.game.Paintable;
+import ogp.game.World;
+import ogp.util.Chronometer;
+import ogp.util.Rectangle;
+import ogp.util.TimeAccumulator;
+
+@SuppressWarnings("serial")
+/**
+ * NOSPEC
+ */
+public class PlatformerPanel extends JPanel {
+	
+	/**
+	 * @pre | uifactor > 0
+	 */
+	private final int uifactor; //1px = uifactor * ingame length unit
+	private Chronometer chron;
+	
+	private ArrayList<World> worlds;
+	private World world; private int worldIdx;
+	
+	private KeyInput keyInput;
+	private JLabel bagDisplay;
+	
+	
+	private HashMap<String, ImageIcon> spriteMap;
+	
+	private Chronometer animChron = new Chronometer();
+	private TimeAccumulator animAcc = new TimeAccumulator();
+	private boolean animFlag = false;
+	
+	
+	/**
+	 * LEGIT
+	 * 
+	 * @pre | worlds.size() >= 1
+	 */
+	public PlatformerPanel(int uifactor, ArrayList<World> worlds, KeyInput keyInput) {
+		if (worlds == null) { throw new IllegalArgumentException(); }
+		if (worlds.stream().anyMatch(w -> w == null)) { throw new IllegalArgumentException(); }
+		if (worlds.size() == 0) { throw new IllegalArgumentException(); }
+		
+		if (keyInput == null) { throw new IllegalArgumentException(); }
+		if (uifactor <= 0) { throw new IllegalArgumentException(); }
+		
+		
+		this.uifactor = uifactor;
+		
+		this.worlds = worlds;
+		this.world = worlds.get(0);
+		this.worldIdx = 0;
+		
+		this.keyInput = keyInput;
+		this.chron = new Chronometer();
+		
+		this.addKeyListener(keyInput);
+		this.setPreferredSize(new Dimension(world.getWidth()/uifactor,world.getHeight()/uifactor));
+		
+		this.bagDisplay = new JLabel("empty");
+		this.add(bagDisplay);
+		
+		renewSpriteMap();
+	}
+	
+	@Override
+	/**
+	 * LEGIT
+	 */
+	public boolean isFocusable() {
+		return true;
+	}
+	
+    @Override
+    /**
+     * LEGIT
+     */
+    protected void paintComponent(Graphics g)
+    {
+        super.paintComponent(g);
+
+        updateGameState();
+        paintGameState(g);
+        pauseForBreath();
+        repaint();
+    }
+    
+    /**
+     * LEGIT
+     */
+    private void updateGameState() {
+    	
+    	if ( world.getVictory() ) {
+    		if (worldIdx != worlds.size() -1) {
+    			world = worlds.get(worldIdx + 1);
+    			worldIdx = worldIdx + 1;
+    			renewSpriteMap();
+    			
+    			this.setPreferredSize(new Dimension(world.getWidth() / uifactor, world.getHeight() / uifactor));
+    			this.revalidate(); // Refresh layout
+
+    			//asks parent JFrame to resize accordingly
+    			Window window = SwingUtilities.getWindowAncestor(this);
+    			if (window instanceof JFrame) {
+    			    ((JFrame) window).pack();
+    			}
+    		}
+    		else System.exit(0);
+    	}
+    	else if (world.getPlayerHp() == 0) {
+    	    JOptionPane.showInternalMessageDialog(null, "", "Game Over", JOptionPane.INFORMATION_MESSAGE);
+    	    System.exit(0);
+    	}
+    	
+    	var nanoseconds = chron.nanosecondsSinceLast();
+    	
+    	//read input and update world accordingly
+    	
+    	world.movePlayerHorz(keyInput.getHorizontalMovement());
+    	
+    	
+    	if (keyInput.consumeSpacePressed()) {
+    		world.jumpPlayer();
+    	}
+    	
+    	if (keyInput.consumeGravKey()) {
+    		world.trySwitchGravity();
+    	}
+    	
+    	if (keyInput.consumeDashKey()) {
+    		world.makePlayerDash();
+    	}
+    	
+    	world.tick(nanoseconds);
+    }
+    
+    
+    
+    private void paintGameState(Graphics g) {
+    	//every 400ms, animFlag flips
+    	animAcc.accumulate(animChron.nanosecondsSinceLast());
+    	if (animAcc.grab(400 * 1000000)) {
+    		animFlag = animFlag? false : true;
+    	}
+    	
+    	//clear
+    	g.setColor(Color.LIGHT_GRAY.darker());
+    	fillGameRectangle(g, world.getField());
+    	//g.fillRect(0, 0, world.getWidth(), world.getHeight()); 
+    	
+    	//TODO: paint entities from world
+    	for (Paintable ent : world.getPaintables()) {
+    		paintEntity(g,ent);
+    	}
+    	
+    	//write bag contents and player hps
+    	String txt = world.getPlayerBag().stringContents(); 
+    	txt = txt + "|  F to dash, G to gravswitch | HP :" + world.getPlayerHp();
+    	bagDisplay.setText( txt );
+
+    	
+    	
+    }
+    
+
+    private void paintEntity(Graphics g, Paintable ent) {
+		String path = ent.pngPath();
+		if (animFlag && ent.pngPath2() != null ) {
+			path = ent.pngPath2();
+		}
+		//so path is a path to a png, or it is null.
+		
+		Rectangle paintBox = ent.shouldUpscale()? ent.getHitbox().upscale() : ent.getHitbox();
+		boolean gravFlag = world.getGravSwitched() && ent.isAffectedByGravity();
+		
+		//TODO: paint ent. if path == null, use Paintable.paintColor.
+		int uiTlx = paintBox.getTL().getX() / uifactor;
+	    int uiTly = paintBox.getTL().getY() / uifactor;
+	    int uiwidth = paintBox.getWidth() / uifactor;
+	    int uiheight = paintBox.getHeight() / uifactor;
+
+	    if (path != null && spriteMap.containsKey(path)) {
+	        Image img = spriteMap.get(path).getImage();
+	        if (!gravFlag) {
+	            g.drawImage(img, uiTlx, uiTly, uiwidth, uiheight, null);
+	        } else {
+	            g.drawImage(img, uiTlx + uiwidth, uiTly + uiheight, -uiwidth, -uiheight, null);
+	        }
+	    } else {
+	        g.setColor(ent.paintColor());
+	        g.fillRect(uiTlx, uiTly, uiwidth, uiheight);
+	    }
+
+		
+	}
+
+    
+    
+	/**
+     * LEGIT
+     */
+    private void fillGameRectangle(Graphics g, Rectangle rec) {
+    	int uiTlx = rec.getTL().getX() / uifactor;
+    	int uiTly = rec.getTL().getY() / uifactor;
+    	int uiwidth = rec.getWidth() / uifactor;
+    	int uiheight = rec.getHeight() / uifactor;
+    	g.fillRect(uiTlx, uiTly, uiwidth, uiheight);
+    }
+    
+    /**
+     * LEGIT
+     * 
+     * Needed to make animation fluent on linux.
+     */
+    private void pauseForBreath()
+    {
+        Toolkit.getDefaultToolkit().sync();
+    }
+    
+    /**
+     * LEGIT
+     */
+    private void renewSpriteMap() {
+		this.spriteMap = new HashMap<String, ImageIcon>();
+		for (var ent : this.world.getPaintables()) {
+			if (ent.pngPath() != null) {
+				this.spriteMap.put(ent.pngPath(), new ImageIcon(Main.class.getClassLoader().getResource(ent.pngPath())) );
+			}
+			if (ent.pngPath2() != null) {
+				this.spriteMap.put(ent.pngPath2(), new ImageIcon(Main.class.getClassLoader().getResource(ent.pngPath2())) );
+			}
+		}
+    }
+    
+}
