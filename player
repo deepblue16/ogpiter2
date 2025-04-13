@@ -1,0 +1,219 @@
+package ogp.game;
+
+
+import java.awt.Color;
+import java.util.ArrayList;
+
+import ogp.ui.KeyInput;
+import ogp.util.Chronometer;
+import ogp.util.Rectangle;
+import ogp.util.Vector;
+
+public class Player extends MovingEntity {
+	
+	private KeyInput keyInput;
+	private World world;
+
+
+	/**
+	 * @representationObject
+	 */
+	private Bag bag;
+	
+	private Chronometer jumpChron = new Chronometer(); 
+	private int jumpTimeAcc = 0; //ms
+	
+	private Chronometer dashChron = new Chronometer();
+	private int dashTimeAcc = 0; //ms
+	private boolean dashing;
+	
+	private Chronometer invincibleChron = new Chronometer();
+	private long invincibleTimeAcc = 0; //nanosec
+	private int hp;
+	
+	/**
+	 * NOSPEC
+	 */
+	public Bag getBag() {
+		return bag;
+	}
+	
+	/**
+	 * NOSPEC
+	 */
+	public Spaceship getShip() {
+		return bag.getShip();
+	}
+	
+	public ArrayList<Gem> getGems() {
+		return bag.getGems();
+	}
+	
+	public int getHp() {
+		return hp;
+	}
+	
+
+	
+	public Player(Rectangle hitbox, Vector speed, Bag bag, int hspeed, int vspeed) {
+		super( hitbox, speed, hspeed, vspeed);
+		this.bag = bag;
+		this.hp = 5;
+	}
+
+	/**
+	 * @creates | result
+	 */
+	public Player copy() {
+		return new Player(getHitbox(), getSpeed(), bag.copy(), getHspeed(), getVspeed());
+	}
+
+
+	
+	/**
+	 * NOSPEC
+	 * @pre | g != null
+	 * this player adds g in its list of collected gems
+	 */
+	public void addGemToBag(Gem g) {
+		
+		bag.addGem(g);
+
+	}
+	
+
+	public void addKeyToBag(Key k) {
+		
+		if (k == null) {
+			throw new IllegalArgumentException("Key can't be null");
+		}
+		
+		bag.addKey(k);
+
+	}
+	
+	/** NOSPEC */
+	public boolean consumeKeyInBag(Color col) {
+		if (col == null) {
+			throw new IllegalArgumentException("Color can't be null");
+		}
+		
+		return bag.consumeKey(col);
+		
+	}
+	
+	/**
+	 * @pre | ship != null
+	 * this player collects the ship
+	 * this player hitbox is replaced by ship.getHbox().upscale();
+	 */
+	public void setShip(Spaceship ship) {
+		bag.setShip(ship);
+		this.setHitbox(ship.getHitbox().upscale());
+		
+	}
+
+	/**
+	 * LEGIT
+	 * If possible, attempts to upgrade this player ship with upgrades
+	 * correspdonding to this player list of gems.
+	 * See Bag.update doc.
+	 */
+	public void updateBag() {
+		bag.update();
+	}
+
+
+	/** NOSPEC */
+	public void tryUpgradeShip(Upgrade u) {
+		bag.tryUpgradeShip(u);
+	}
+	
+	public int updateAndGiveJumpTime() {
+		jumpTimeAcc += jumpChron.nanosecondsSinceLast() / 1000000;
+		return jumpTimeAcc;
+	}
+	
+	public void resetJumpTime() {
+		jumpTimeAcc = 0;
+	}
+	
+	public void resetDashTime() {
+		dashChron.nanosecondsSinceLast(); //reset chron
+		dashTimeAcc = 0;
+		
+	}
+	
+	public void updateDashingStatus() {
+		if (dashing) {
+			dashTimeAcc += dashChron.nanosecondsSinceLast();
+			if (dashTimeAcc /1000000 >= 150) {
+				dashing = false;
+			}
+		}
+	}
+	
+	public boolean isDashing() {
+		return dashing;
+	}
+	
+	public void setDashing() {
+		resetDashTime();
+		dashing = true;
+	}
+	
+	
+	/**
+	 * player can not lose additional hps for some time
+	 */
+	public void lose1life() {
+		
+		invincibleTimeAcc += invincibleChron.nanosecondsSinceLast();
+		
+		if (invincibleTimeAcc >= 2_000_000_000L) { // 2 seconds of invulnerability ?
+			
+			hp--;
+			invincibleTimeAcc = 0;
+			
+			invincibleChron.nanosecondsSinceLast(); // om de timer opnieuw te starten
+			
+		}
+		
+	}
+	
+	public void updateSpeedAuto(int dt, boolean gravSwitched) {
+		
+		// is het alles dat moet?
+		
+		
+		updateDashingStatus();
+		
+		int gravity = gravSwitched ? 10 : -10;
+        updateSpeedWithGravity(gravity, dt, gravSwitched);
+
+	}
+	
+	@Override
+	public CollisionInfo delegateCollision(FixedEntity fixent, boolean soleCollision) {
+		
+		// TE DOEN
+		return CollisionInfo.NOINFO;
+	}
+	
+	@Override
+	public MovingEntity copyMovent() {
+		return new Player(getHitbox(), getSpeed(), bag.copy(), getHspeed(), getVspeed());
+	}
+	
+	/** LEGIT */
+	@Override
+	public String pngPath() {
+		if (getShip() == null) {
+			return "player/p1_front.png";			
+		}
+		else return getShip().pngPath();
+		
+	}
+		
+	
+}
