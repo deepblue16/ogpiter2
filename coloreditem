@@ -1,0 +1,58 @@
+package ogp.game;
+
+import java.awt.Color;
+import java.util.ArrayList;
+
+import ogp.util.Rectangle;
+
+/**
+ * @immutable
+ */
+public abstract class ColoredItem extends Item {
+	
+	/**
+	 * LEGIT
+	 */
+	private static ArrayList<Color> allowedColorsPriv() {
+		var res = new ArrayList<Color>();
+		res.add(Color.YELLOW); res.add(Color.GREEN); res.add(Color.BLUE);
+		return res;
+	}
+	
+	/**
+	 * LEGIT
+	 */
+	public static ArrayList<Color> allowedColors() {
+		return allowedColorsPriv();
+	}
+	
+	/**
+	 * @invar | allowedColorsPriv().contains(color)
+	 */
+	private Color color;
+	
+	public Color getColor() {
+		return color;
+	}
+	/**
+	 * constructor coloredItem
+	 * 
+	 * @throws IllegalArgumentException if color is not in AllowedColors
+	 *   | !allowedColors().contains(color)
+	 */
+	public ColoredItem(Rectangle hitbox, Color color) {
+		super(hitbox);
+		
+		if (!allowedColors().contains(color)) { throw new IllegalArgumentException();}
+		this.color = color;
+	}
+	
+	@Override
+	/**
+	 * maakt een kopie van de instantie, als nodig moet dit een deep copie zijn
+	 */
+	public FixedEntity copyFixent() {
+		return this;
+	}
+
+}
