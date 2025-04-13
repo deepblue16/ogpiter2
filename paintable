@@ -1,0 +1,49 @@
+package ogp.game;
+
+import java.awt.Color;
+
+import ogp.util.Rectangle;
+
+/** NOSPEC */
+public interface Paintable {
+	
+	//null is ok
+	public String pngPath();
+	
+
+	/**
+	 * For light "animation". Often null.
+	 */
+	default public String pngPath2() {
+		return null;
+	}
+	
+	/**
+	 * LEGIT
+	 * 
+	 * intended to be used if no png path is provided
+	 * 
+	 * @post | result != null
+	 */
+	default public Color paintColor() {
+		return Color.BLACK;
+	}
+	
+	public Rectangle getHitbox();
+	
+	default public boolean isAffectedByGravity() {
+		return false;
+	}
+	
+	/**
+	 * LEGIT
+	 * 
+	 * Upscale right before painting to display a slightly bigger image.
+	 * Does not affect the actual in-game hitbox.
+	 */
+
+	default public boolean shouldUpscale() {
+		return false;
+	}
+
+}
