@@ -1,0 +1,32 @@
+package ogp.game;
+
+import ogp.util.Rectangle;
+
+public abstract class FixedEntity implements Paintable {
+	
+	/**
+	 * @invar | hitbox != null
+	 */
+	private final Rectangle hitbox;
+	
+	public Rectangle getHitbox() {
+		return new Rectangle(hitbox.getTL(), hitbox.getWidth(), hitbox.getHeight());
+	}
+	
+	public FixedEntity(Rectangle hitbox) {
+		this.hitbox = new Rectangle(hitbox.getTL(), hitbox.getWidth(), hitbox.getHeight());
+	}
+	
+	public abstract CollisionInfo handleCollisionPlayer(Player player);
+	public abstract CollisionInfo handleCollisionEnemy(Enemy enemy, boolean soleCollision);
+	public boolean isSpaceship() { return this instanceof Spaceship; } 
+	public boolean isExternalWall() { return this instanceof ExternalWall; } 
+	public boolean isObstacle() { return this instanceof Obstacle;	} 
+	public boolean isGem() { return this instanceof Gem; } 
+	/**
+	 * Returns a deep copy (if needed) with same runtime type than this
+	 * @post | result.getClass().equals(old(getClass()))
+	 */
+	public abstract FixedEntity copyFixent();
+
+}
