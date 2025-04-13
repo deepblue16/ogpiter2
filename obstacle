@@ -1,0 +1,46 @@
+package ogp.game;
+
+import ogp.util.Rectangle;
+import ogp.util.Vector;
+
+/**
+ * @immutable
+ */
+public abstract class Obstacle extends FixedEntity {
+	
+
+	public Obstacle(Rectangle hitbox) {
+		super(hitbox);
+	}
+	
+	@Override
+	public CollisionInfo handleCollisionEnemy(Enemy enemy, boolean soleCollision) {
+		
+		// NIET GOED TO DO
+		
+		Vector speed = enemy.getSpeed();
+		enemy.setSpeed(new Vector(-speed.x(),-speed.y()));
+		
+		
+		return CollisionInfo.NOINFO;
+	}
+	
+	@Override
+	public CollisionInfo handleCollisionPlayer(Player player) {
+		
+		// TO DO
+		
+		//Vector speed = player.getSpeed();
+		
+		//player.setSpeed(new Vector(-speed.x(),-speed.y()));
+		
+		return CollisionInfo.NOINFO;
+	}
+	
+	
+	@Override
+	public FixedEntity copyFixent() {
+		return this;
+	}
+
+}
