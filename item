@@ -1,0 +1,54 @@
+package ogp.game;
+
+import ogp.util.Rectangle;
+
+public abstract class Item extends FixedEntity {
+	
+	
+	public Item(Rectangle hitbox) {
+		super(hitbox);
+	}
+	
+	@Override
+	/**
+	 * geeft info over de botsing met een vijand
+	 */
+	public CollisionInfo handleCollisionEnemy(Enemy enemy, boolean soleCollision) {
+		if (soleCollision) {
+			enemy.setHitbox(enemy.getHitbox().plus(enemy.getSpeed()));			
+		}
+		return CollisionInfo.NOINFO;
+	}
+	
+	@Override
+	/**
+	 * retourneert altijd true, misschien niet wat verwacht wordt ?
+	 */
+	public boolean shouldUpscale() {
+		return true;
+	}
+	
+	public abstract String toSmallString();
+	
+	@Override
+	/**
+	 * items kunnen door de player genomen worden
+	 * moet geïmplementeerd worden
+	 */
+	public CollisionInfo handleCollisionPlayer(Player player) {
+		
+		if (this instanceof Spaceship ship) {
+			player.setShip(ship);
+		
+		} else if (this instanceof Key key) {
+			player.addKeyToBag(key);
+		} else if (this instanceof Gem gem) {
+			player.addGemToBag(gem);
+		}
+		
+		
+		return CollisionInfo.DESTRCOLLIDEE;
+	}
+	
+
+}
