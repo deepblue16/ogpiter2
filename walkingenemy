@@ -1,0 +1,73 @@
+package ogp.game;
+
+import ogp.util.Rectangle;
+import ogp.util.TimeAccumulator;
+import ogp.util.Vector;
+import ogp.util.Chronometer;
+
+public class WalkingEnemy extends Enemy {
+	
+	/**
+	 * @invar | direction == -1 || direction == 1
+	 */
+	private final int walkTimeMs;
+	private int direction;
+	
+	private int elapsedWalkTime = 0;
+    private int elapsedJumpTime = 0;
+	
+	public WalkingEnemy(Rectangle hitbox, Vector speed, int hspeed, int vspeed, int walkTimeMs) {
+		super(hitbox, speed, hspeed, vspeed);
+		this.walkTimeMs = walkTimeMs;
+		this.direction = -1;
+	}
+	
+	@Override
+	public void updateSpeedAuto(int dt, boolean gravSwitched) {
+	    setHorizontalSpeed(direction * getHspeed());
+
+	    elapsedWalkTime += dt;
+        elapsedJumpTime += dt;
+
+        if (elapsedWalkTime >= walkTimeMs) {
+            direction = -direction;
+            elapsedWalkTime = 0;
+        }
+        
+	    if (elapsedJumpTime >= (int)(1.5 * walkTimeMs)) {
+	    	if (gravSwitched) {
+	            setVerticalSpeed(getVspeed());  
+	        } else {
+	            setVerticalSpeed(-getVspeed());  
+	        }
+	        elapsedJumpTime = 0;
+	    }
+
+	    updateSpeedWithGravity(10, dt, gravSwitched);
+	}
+	
+	@Override
+	/**
+	 * @post | result.getClass().equals(old(getClass()))
+	 */
+	public MovingEntity copyMovent() {
+        WalkingEnemy copy = new WalkingEnemy(getHitbox(), getSpeed(), getHspeed(), getVspeed(), walkTimeMs);
+        copy.direction = this.direction;  
+        copy.elapsedWalkTime = this.elapsedWalkTime;
+        copy.elapsedJumpTime = this.elapsedJumpTime;  
+        return copy;
+	}
+	
+	/** LEGIT */
+	@Override
+	public String pngPath() {
+		return "enemies/blockerMad.png";
+	}
+	
+	public int getDirection() {
+        return direction;
+    }
+
+}
+
+
