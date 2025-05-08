@@ -1,0 +1,250 @@
+package ogp.multiclass;
+
+import java.util.ArrayList;
+
+import ogp.game.CollisionInfo;
+import ogp.game.Obstacle;
+import ogp.game.Player;
+import ogp.util.Point;
+import ogp.util.Rectangle;
+import ogp.util.StringManip;
+import logicalcollections.LogicalList;
+
+/**
+ * Each instance of this class represents a terminal that can be linked to other portals and terminals
+ * 
+ * @invar | getCommand() != null
+ * @invar | getLinkedPortals() != null
+ * @invar | getLinkedPortals().stream().allMatch(p -> p != null)
+ */
+public class Terminal extends Obstacle implements Connectable {
+	
+	//----fields----
+	
+	/**
+	 * @invar | command != null
+	 */
+	String command;
+	
+	/**
+	 * @representationObject
+	 * @peerObjects
+	 * @invar | linkedPortals != null
+     * @invar | linkedPortals.stream().allMatch(p -> p != null)
+	 */
+	ArrayList<Portal> linkedPortals;
+	boolean hasWriteAccess;
+	
+	
+	//----getters------
+	
+	/**
+	 * @post | result != null
+	 */
+	public String getCommand() {
+		return command; //LEGIT
+	}
+	
+	/**
+	 * @peerObjects
+	 * @creates | result
+	 * @post | result != null
+	 * @post | result.stream().allMatch(p -> p != null)
+	 * @post | result.equals(new ArrayList<>(result))
+	 */
+	public ArrayList<Portal> getLinkedPortals() {
+		return new ArrayList<>(linkedPortals); // DAAR WAS ER EEN REPRESENTATION EXPOSURE
+		
+	}
+	
+
+	public boolean hasWriteAccess() {
+		return hasWriteAccess; //LEGIT
+	}
+	
+	//----constructor-----
+	
+	/**
+	 * Initializes this Terminal without a command and connections
+	 * 
+	 * @post | getHitbox().equals(hitbox)
+	 * @post | getCommand().equals("")
+	 * @post | getLinkedPortals().isEmpty()
+	 * @post | hasWriteAccess() == false
+	 */
+	public Terminal(Rectangle hitbox) {
+		super(hitbox);
+		command = "";
+		linkedPortals = new ArrayList<Portal>();
+		hasWriteAccess = false;
+	}
+	
+	/**
+	 * LEGIT
+	 * Creates a terminal with a fixed default hitbox.
+	 * Used to test the multiclass.
+	 */
+	public Terminal() {
+		this( new Rectangle(Point.O(), 500,500) );
+	}
+	
+
+	
+	//----helpers-----
+	
+	/**
+	 * Checks if this terminal currently has write access.
+	 * @inspects | linkedPortals, ...linkedPortals
+	 * @post |  result == getLinkedPortals().stream().anyMatch(p -> p.getExitIndex() % 2 != 0)
+	 */
+	boolean computeHasWriteAccess() {
+		boolean valid = false;
+		for (Portal linked : linkedPortals) {
+			if (linked.exitIndex % 2 != 0 ) { // als een exitIndex oneven is
+				valid = true;
+			}
+		}
+		return valid;
+	}
+	
+	//----mutators----
+
+
+	/**
+	 * @pre | command != null
+	 * @post | getCommand().equals( command )
+	 * 
+	 * @mutates_properties | (...getLinkedPortals()).getId(),
+	 *                     | (...getLinkedPortals()).getExitPortals(),
+	 *                     | (...getLinkedPortals()).getExitIndex()
+	 * post moeten nog komen
+    */
+	public void setCommand(String command) {
+		// DAAR WAS ER DUS EEN REGRESSION FLAW
+		//if (!hasWriteAccess) {
+		//	throw new IllegalStateException();
+		//}
+		this.command = command;
+		
+		// alles updaten !!!
+		
+		for (Portal p : linkedPortals) {
+			
+			p.id = StringManip.interleaveHalf(p.computeTerminalCommands());
+			p.exitPortals = p.computeExits();
+			p.exitIndex = p.computeExitIndex();
+						
+			// update portals geplugd aan eerste portals
+		    for (Portal plugged : p.getPluggedPortals()) {
+		        plugged.exitPortals = plugged.computeExits();
+		        plugged.exitIndex = plugged.computeExitIndex();
+		    }
+
+		    // update terminals gelinkt aan geplugde portals
+		    for (Portal plugged : p.getPluggedPortals()) {
+		        for (Terminal t : plugged.getLinkedTerminals()) {
+		            t.hasWriteAccess = t.computeHasWriteAccess();
+		        }
+		    }
+			
+			
+		}
+		
+		
+		// de terminal updaten
+		hasWriteAccess = computeHasWriteAccess();
+		
+		
+	
+	}
+	
+	/**
+	 * has no effect if already linked
+	 * @pre | portal != null
+	 * 
+	 * @mutates_properties | getLinkedPortals(), portal.getLinkedTerminals(),
+     *                     | portal.getId(), portal.getExitPortals(), portal.getExitIndex(),
+     *                     | hasWriteAccess()
+	 *
+	 * @post | getLinkedPortals().stream().anyMatch( lport -> lport == portal)
+	 * @post | portal.getLinkedTerminals().equals(LogicalList.plus(old(portal.getLinkedTerminals()), this))
+	 * @post | getLinkedPortals().equals(LogicalList.plus(old(getLinkedPortals()),portal))
+	 * @post | portal.getId().equals(StringManip.interleaveHalf(portal.computeTerminalCommands()))
+	 * nog post voor computeExits
+	 */
+	public void linkPortal(Portal portal) {
+		if (!linkedPortals.contains(portal)) { // DAAR WAS ER EEN REGRESSION FLAW
+			linkedPortals.add(portal);
+			portal.linkedTerminals.add(this);
+			
+			// de portal updaten
+			portal.id = StringManip.interleaveHalf(portal.computeTerminalCommands());
+			portal.exitPortals = portal.computeExits();
+			portal.exitIndex = portal.computeExitIndex();
+			
+			// de terminal updaten
+			this.hasWriteAccess = computeHasWriteAccess();
+		}
+		
+
+	}
+	
+	// integration into the game
+
+	@Override
+	/**
+	 * LEGIT
+	 */
+	public String pngPath() {
+		return "tiles/terminal.png";
+	}
+	
+	@Override
+	/**
+	 * LEGIT
+	 */
+	public CollisionInfo handleCollisionPlayer(Player player) {
+		return super.handleCollisionPlayer(player);
+	}
+	
+	@Override
+	/**
+	 * LEGIT
+	 */
+	public boolean isTerminal() {
+		return true;
+	}
+	
+	@Override
+	/**
+	 * @throws IllegalArgumentException | target == null
+	 * 
+	 * @inspects | getLinkedPortals()
+	 * 
+	 * @post | result == !old(getLinkedPortals()).contains(target)
+     * @post | getLinkedPortals().contains(target)
+	 */
+	public boolean establishLink(Portal target) {
+		if (target == null)
+			throw new IllegalArgumentException("target cannot be null");
+
+		if (linkedPortals.contains(target))
+			return false;
+
+		this.linkPortal(target);
+		
+		return true;
+	}
+	
+	@Override
+	/**
+	 * LEGIT
+	 */
+	public Point getCenterPosition() {
+		return getHitbox().center();
+	}
+	
+
+	
+}
+
