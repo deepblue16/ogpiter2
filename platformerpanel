@@ -1,8 +1,10 @@
 package ogp.ui;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.Toolkit;
 import java.awt.Window;
@@ -18,9 +20,14 @@ import javax.swing.SwingUtilities;
 
 import ogp.game.Paintable;
 import ogp.game.World;
+import ogp.multiclass.Connectable;
+import ogp.multiclass.Portal;
+import ogp.multiclass.Terminal;
 import ogp.util.Chronometer;
+import ogp.util.Point;
 import ogp.util.Rectangle;
 import ogp.util.TimeAccumulator;
+import ogp.util.Vector;
 
 @SuppressWarnings("serial")
 /**
@@ -94,6 +101,8 @@ public class PlatformerPanel extends JPanel {
      */
     protected void paintComponent(Graphics g)
     {
+
+    	
         super.paintComponent(g);
 
         updateGameState();
@@ -103,9 +112,15 @@ public class PlatformerPanel extends JPanel {
     }
     
     /**
-     * LEGIT
+     * NOSPEC
+     * 
+     * 
      */
     private void updateGameState() {
+    	
+    	//this code block, delimited by "begin" and "end" is LEGIT
+    	
+    	//begin LEGIT
     	
     	if ( world.getVictory() ) {
     		if (worldIdx != worlds.size() -1) {
@@ -148,13 +163,78 @@ public class PlatformerPanel extends JPanel {
     		world.makePlayerDash();
     	}
     	
+    	//end LEGIT
+    	
+    	
+    	
+    	if (keyInput.consumeEnterKey()) {
+    		
+    		Terminal terminal = world.getTerminalNearPlayer();
+    		
+    		if (terminal != null) {
+    			
+    			if (terminal.hasWriteAccess()) {
+    				
+    				//dialog window with ask-for-input.
+    				SwingUtilities.invokeLater(() -> {
+    					String res = JOptionPane.showInputDialog(this, "Set command:", "");
+    					
+    					if (res != null) {
+    						terminal.setCommand(res);
+    						}
+    					
+    				});
+    				
+    			} else {
+    				
+    				SwingUtilities.invokeLater(() -> {
+    					JOptionPane.showMessageDialog(this, "Write access = false");
+    				});
+    				
+    				
+    			}
+    		
+    			
+    		}
+
+    		
+
+    		Portal portal = world.getPortalNearPlayer();
+    		
+    		if (portal != null) {
+    			
+
+    			portal.nextIndex();
+    		}
+
+    	}
+    	
+    	if (keyInput.consumeHKey()) {
+    		
+    		if (world.getCarriedConnection() == null) {
+    			world.tryCarryConnectionFromNearConnectable();
+    		} else {
+    			world.tryUncarryToNearPortal();
+    		}
+ 
+    	}
+    	
+    	if (keyInput.consumeJKey()) {
+    		
+    		world.tryTeleportPlayer();
+    		
+    	}
+    	
+    	
+    	
+    	
     	world.tick(nanoseconds);
     }
     
-    
-    
+    /**
+     * LEGIT
+     */
     private void paintGameState(Graphics g) {
-    	//every 400ms, animFlag flips
     	animAcc.accumulate(animChron.nanosecondsSinceLast());
     	if (animAcc.grab(400 * 1000000)) {
     		animFlag = animFlag? false : true;
@@ -165,55 +245,27 @@ public class PlatformerPanel extends JPanel {
     	fillGameRectangle(g, world.getField());
     	//g.fillRect(0, 0, world.getWidth(), world.getHeight()); 
     	
-    	//TODO: paint entities from world
-    	for (Paintable ent : world.getPaintables()) {
-    		paintEntity(g,ent);
+    	for (var ent : this.world.getPaintables()) {
+    		paintEntity(g, ent);
     	}
+    	
+
+    	
+    	paintAllTerminalPortalLinks(g);
+    	paintCommands(g);
+    	paintPortalIds(g);
+    	paintConnectable(g);
     	
     	//write bag contents and player hps
     	String txt = world.getPlayerBag().stringContents(); 
-    	txt = txt + "|  F to dash, G to gravswitch | HP :" + world.getPlayerHp();
+    	txt = txt + "|  H = carry cable, J = teleport";
     	bagDisplay.setText( txt );
 
     	
     	
     }
     
-
-    private void paintEntity(Graphics g, Paintable ent) {
-		String path = ent.pngPath();
-		if (animFlag && ent.pngPath2() != null ) {
-			path = ent.pngPath2();
-		}
-		//so path is a path to a png, or it is null.
-		
-		Rectangle paintBox = ent.shouldUpscale()? ent.getHitbox().upscale() : ent.getHitbox();
-		boolean gravFlag = world.getGravSwitched() && ent.isAffectedByGravity();
-		
-		//TODO: paint ent. if path == null, use Paintable.paintColor.
-		int uiTlx = paintBox.getTL().getX() / uifactor;
-	    int uiTly = paintBox.getTL().getY() / uifactor;
-	    int uiwidth = paintBox.getWidth() / uifactor;
-	    int uiheight = paintBox.getHeight() / uifactor;
-
-	    if (path != null && spriteMap.containsKey(path)) {
-	        Image img = spriteMap.get(path).getImage();
-	        if (!gravFlag) {
-	            g.drawImage(img, uiTlx, uiTly, uiwidth, uiheight, null);
-	        } else {
-	            g.drawImage(img, uiTlx + uiwidth, uiTly + uiheight, -uiwidth, -uiheight, null);
-	        }
-	    } else {
-	        g.setColor(ent.paintColor());
-	        g.fillRect(uiTlx, uiTly, uiwidth, uiheight);
-	    }
-
-		
-	}
-
-    
-    
-	/**
+    /**
      * LEGIT
      */
     private void fillGameRectangle(Graphics g, Rectangle rec) {
@@ -237,6 +289,33 @@ public class PlatformerPanel extends JPanel {
     /**
      * LEGIT
      */
+    private void paintEntity(Graphics g, Paintable ent) {
+    	String path = ent.pngPath();
+    	if (animFlag && ent.pngPath2() != null ) {
+    		path = ent.pngPath2();
+    	}
+    	
+    	Rectangle paintBox = ent.shouldUpscale()? ent.getHitbox().upscale() : ent.getHitbox();
+    	boolean gravFlag = world.getGravSwitched() && ent.isAffectedByGravity();
+    	
+    	if (path == null) {
+    		g.setColor( ent.paintColor() );
+    		fillGameRectangle(g, paintBox );
+    	}
+    	else {
+    		Image img = spriteMap.get(path).getImage();
+        	g.drawImage(img,
+        			paintBox.getTL().getX() /uifactor , 
+        			(paintBox.getTL().getY() + (gravFlag? paintBox.getHeight() : 0)) / uifactor,
+        			paintBox.getWidth()/uifactor,
+        			(gravFlag ? -1 : 1) * paintBox.getHeight()/uifactor,
+        			this);
+    	}
+    }
+    
+    /**
+     * LEGIT
+     */
     private void renewSpriteMap() {
 		this.spriteMap = new HashMap<String, ImageIcon>();
 		for (var ent : this.world.getPaintables()) {
@@ -248,5 +327,178 @@ public class PlatformerPanel extends JPanel {
 			}
 		}
     }
+    
+    /**
+     * NOSPEC
+     * 
+     * Paints terminal-portal, portal-portal links.
+     * If p2 is an exit of p1, an arrow head is drawn near p2 (pointing towards p2).
+     * If it is the active exit (see getExitIndex) the arrow head is drawn in red instead of black.
+     */
+    private void paintAllTerminalPortalLinks(Graphics g) {
+    	
+    	Graphics2D g2 = (Graphics2D) g;
+    	
+    	ArrayList<Portal> portals = world.getPortals();
+    	ArrayList<Terminal> terminals = world.getTerminals();
+    	
+    	for (Terminal t : terminals) {
+    	    for (Portal p : t.getLinkedPortals()) {
+    	        Point p1 = t.getCenterPosition();
+    	        Point p2 = p.getCenterPosition();
+    	        g2.drawLine(p1.getX() / uifactor, p1.getY() / uifactor, p2.getX() / uifactor, p2.getY() / uifactor);
+    	    }
+    	}
+
+    	
+    	
+    	
+    	
+    	
+    	for (Portal p1 : portals) {
+    	    for (Portal p2 : p1.getPluggedPortals()) {
+    	        if (p1 != p2) {
+    	            Point c1 = p1.getCenterPosition();
+    	            Point c2 = p2.getCenterPosition();
+    	            int[] coords = closerLineEndpoints(c1.getX() / uifactor, c1.getY() / uifactor,
+    	                                               c2.getX() / uifactor, c2.getY() / uifactor);
+    	            g2.drawLine(coords[0], coords[1], coords[2], coords[3]);
+    	        }
+    	    }
+    	}
+    	
+    	
+    	
+    	for (Portal p1 : portals) {
+    	    ArrayList<Portal> exits = p1.getExitPortals();
+    	    for (int i = 0; i < exits.size(); i++) {
+    	        Portal p2 = exits.get(i);
+    	        Point c1 = p1.getCenterPosition();
+    	        Point c2 = p2.getCenterPosition();
+    	        int[] coords = closerLineEndpoints(c1.getX() / uifactor, c1.getY() / uifactor,
+    	                                           c2.getX() / uifactor, c2.getY() / uifactor);
+    	        Color arrowColor = (i == p1.getExitIndex()) ? Color.RED : Color.BLACK;
+    	        drawArrow(g2, coords[0], coords[1], coords[2], coords[3], arrowColor);
+    	    }
+    	}
+
+
+    	
+    	
+    }
+    
+    /**
+     * NOSPEC
+     * paints a line between the player and its connected Connectable (if any)
+     */
+    private void paintConnectable(Graphics g) {
+		Connectable cble = world.getCarriedConnection();
+		if (cble != null) {
+			Graphics2D g2 = (Graphics2D) g;
+			g2.setStroke(new BasicStroke(2)); //thick line.
+			
+			
+			Point playercentrum = world.getPlayerRect().center();
+			Point connectablecentrum = cble.getCenterPosition();
+
+			g2.drawLine(playercentrum.getX() / uifactor, playercentrum.getY() / uifactor, connectablecentrum.getX() / uifactor, connectablecentrum.getY() / uifactor);
+
+			
+			g2.setStroke(new BasicStroke()); //reset to default thickness.
+		}
+	}
+
+    /**
+     * NOSPEC
+     * paints commands of terminals a bit above them.
+     */
+	private void paintCommands(Graphics g) {
+    	g.setColor(Color.BLACK);
+    	
+    	ArrayList<Terminal> tmls = world.getTerminals();
+
+    	
+    	for (Terminal tml : tmls) {
+    		int itemSide = tml.getHitbox().getWidth();
+    		Point stringBL = tml.getHitbox().getTL().plus(new Vector(-itemSide /2, - itemSide /4 ));
+    		
+    		
+    		g.drawString(tml.getCommand(), stringBL.getX() / uifactor, stringBL.getY() / uifactor);
+    		
+    	}
+    	
+
+    }
+    
+	/**
+	 * NOSPEC
+	 * paints ids of portals a bit above them.
+	 */
+    private void paintPortalIds(Graphics g) {
+    	g.setColor(Color.BLACK);
+    	
+    	ArrayList<Portal> ptls = world.getPortals();
+    	
+    	for (Portal ptl : ptls) {
+    		int itemSide = ptl.getHitbox().getWidth();
+    		Point stringBL = ptl.getHitbox().getTL().plus(new Vector(-itemSide /2, - itemSide /4 ));
+    		
+    		g.drawString(ptl.getId(), stringBL.getX() / uifactor, stringBL.getY() / uifactor);
+
+    	}
+    		
+    	
+    }
+    
+    /**
+     * LEGIT 
+     * draws an arrow from (x1,y1) into (x2,y2) using g2
+     * The last argument is the Color used to draw the arrow head (if not null)
+     */
+    private void drawArrow(Graphics2D g2, int x1, int y1, int x2, int y2, Color arrowHeadColor) {
+        // Draw the main line
+        g2.drawLine(x1, y1, x2, y2);
+
+        // Arrowhead
+        double phi = Math.toRadians(20);
+        int barb = 10;
+
+        double dy = y2 - y1;
+        double dx = x2 - x1;
+        double theta = Math.atan2(dy, dx);
+
+        Color temp = g2.getColor();
+        if (arrowHeadColor != null) {
+        	g2.setColor(arrowHeadColor);
+        }
+        double x, y;
+        for (int j = 0; j < 2; j++) {
+            double rho = theta + (j == 0 ? phi : -phi);
+            x = x2 - barb * Math.cos(rho);
+            y = y2 - barb * Math.sin(rho);
+            g2.drawLine(x2, y2, (int) x, (int) y);
+        }
+        g2.setColor(temp);
+    }
+    
+    /**
+     * LEGIT
+     * Let L be the line from (x1,y1) to (x2,y2)
+     * This method returns [x3,y3, x4,y4] the coordinates of the endpoints of L',
+     * a shorter line contained in L.
+     * 
+     * The result is subject to approximation.
+     */
+    private int[] closerLineEndpoints(int x1, int y1, int x2, int y2) {
+    	int[] res = new int[4];
+    	
+    	res[0] = (int) (x1 + 0.07d * (x2 - x1)); //x3
+    	res[1] = (int) (y1 + 0.07d * (y2 - y1)); //y3
+    	res[2] = (int) (x1 + 0.93d * (x2 - x1)); //x4
+    	res[3] = (int) (y1 + 0.93d * (y2 - y1)); //y4
+    	
+    	return res;
+    }
+    
     
 }
